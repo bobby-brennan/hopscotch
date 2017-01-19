@@ -1,19 +1,3 @@
-/**! hopscotch - v0.2.6
-*
-* Copyright 2016 LinkedIn Corp. All rights reserved.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
 (function(context, factory) {
   'use strict';
 
@@ -362,7 +346,7 @@
     },
 
     /**
-     * Helper function to get a single target DOM element. We will try to
+     * Helper function to find a DOM element with an identifier. We will try to
      * locate the DOM element through several ways, in the following order:
      *
      * 1) Passing the string into document.querySelector
@@ -375,7 +359,7 @@
      *
      * @private
      */
-    getStepTargetHelper: function(target){
+    getElementByIdentifier: function(target) {
       var result = document.getElementById(target);
 
       //Backwards compatibility: assume the string is an id
@@ -405,6 +389,23 @@
     },
 
     /**
+     * Returns the container DOM element where bubble elements will be added
+     * as children. The container element can be specified by tourOpt.container
+     * as either a string identifier (ID/selector) or directly as a JavaScript
+     * DOM element. By default, or if the specified string identifier does not
+     * match an element, the document's body is used.
+     *
+     * @private
+     */
+    getContainer: function(tourOpt) {
+      if (tourOpt.container) {
+        return typeof tourOpt.container === 'string' ? utils.getElementByIdentifier(tourOpt.container) || document.body : tourOpt.container;
+      }
+
+      return document.body;
+    },
+
+    /**
      * Given a step, returns the target DOM element associated with it. It is
      * recommended to only assign one target per step. However, there are
      * some use cases which require multiple step targets to be supplied. In
@@ -423,7 +424,7 @@
 
       if (typeof step.target === 'string') {
         //Just one target to test. Check and return its results.
-        return utils.getStepTargetHelper(step.target);
+        return utils.getElementByIdentifier(step.target);
       }
       else if (Array.isArray(step.target)) {
         // Multiple items to check. Check each and return the first success.
@@ -433,7 +434,7 @@
 
         for (i = 0, len = step.target.length; i < len; i++){
           if (typeof step.target[i] === 'string') {
-            queriedTarget = utils.getStepTargetHelper(step.target[i]);
+            queriedTarget = utils.getElementByIdentifier(step.target[i]);
 
             if (queriedTarget) {
               return queriedTarget;
@@ -630,6 +631,8 @@
           left,
           arrowOffset,
           verticalLeftPosition,
+          containerElementOffset,
+          containerEl  = utils.getContainer(this.opt),
           targetEl     = utils.getStepTarget(step),
           el           = this.element,
           arrowEl      = this.arrowEl,
@@ -644,6 +647,7 @@
 
       // SET POSITION
       boundingRect = targetEl.getBoundingClientRect();
+      containerBoundingRect = containerEl.getBoundingClientRect();
 
       verticalLeftPosition = step.isRtl ? boundingRect.right - bubbleBoundingWidth : boundingRect.left;
 
@@ -706,6 +710,7 @@
       else {
         left += utils.getPixelValue(step.xOffset);
       }
+
       // VERTICAL OFFSET
       if (step.yOffset === 'center') {
         top = (boundingRect.top + targetEl.offsetHeight/2) - (bubbleBoundingHeight / 2);
@@ -718,6 +723,20 @@
       if (!step.fixedElement) {
         top += utils.getScrollTop();
         left += utils.getScrollLeft();
+      }
+
+      // CONVERT TO CONTAINER COORDINATES
+      el.style.top = '0';
+      el.style.left = '0';
+
+      containerElementOffset = el.getBoundingClientRect();
+
+      top -= containerElementOffset.top;
+      left -= containerElementOffset.left;
+
+      if (!this.opt.fixedContainer) {
+        top -= utils.getScrollTop();
+        left -= utils.getScrollLeft();
       }
 
       // ACCOUNT FOR FIXED POSITION ELEMENTS
@@ -1081,7 +1100,7 @@
           self            = this,
           resizeCooldown  = false, // for updating after window resize
           onWinResize,
-          appendToBody,
+          appendToContainer,
           children,
           numChildren,
           node,
@@ -1150,35 +1169,35 @@
       //Hide the bubble by default
       this.hide();
 
-      //Finally, append our new bubble to body once the DOM is ready.
+      // Finally, append our new bubble to the container once the DOM is ready.
+
       if (utils.documentIsReady()) {
-        document.body.appendChild(el);
+        utils.getContainer(opt).appendChild(el);
       }
       else {
         // Moz, webkit, Opera
         if (document.addEventListener) {
-          appendToBody = function() {
-            document.removeEventListener('DOMContentLoaded', appendToBody);
-            window.removeEventListener('load', appendToBody);
-
-            document.body.appendChild(el);
+          appendToContainer = function() {
+            document.removeEventListener('DOMContentLoaded', appendToContainer);
+            window.removeEventListener('load', appendToContainer);
+            utils.getContainer(opt).appendChild(el);
           };
 
-          document.addEventListener('DOMContentLoaded', appendToBody, false);
+          document.addEventListener('DOMContentLoaded', appendToContainer, false);
         }
         // IE
         else {
-          appendToBody = function() {
+          appendToContainer = function() {
             if (document.readyState === 'complete') {
-              document.detachEvent('onreadystatechange', appendToBody);
-              window.detachEvent('onload', appendToBody);
-              document.body.appendChild(el);
+              document.detachEvent('onreadystatechange', appendToContainer);
+              window.detachEvent('onload', appendToContainer);
+              utils.getContainer(opt).appendChild(el);
             }
           };
 
-          document.attachEvent('onreadystatechange', appendToBody);
+          document.attachEvent('onreadystatechange', appendToContainer);
         }
-        utils.addEvtListener(window, 'load', appendToBody);
+        utils.addEvtListener(window, 'load', appendToContainer);
       }
     }
   };
@@ -1872,7 +1891,7 @@
       // loadTour if we are calling startTour directly. (When we call startTour
       // from window onLoad handler, we'll use currTour)
       if (!currTour) {
-        
+
         // Sanity check! Is there a tour?
         if(!tour){
           throw new Error('Tour data is required for startTour.');
@@ -2467,13 +2486,12 @@ _.escape = function(str){
     if(match == "'"){ return '&#x27;' }
   });
 }
+
 this["templates"] = this["templates"] || {};
 
-this["templates"]["bubble_default"] = function(obj) {
-obj || (obj = {});
+this["templates"]["bubble_default"] = function(data) {
 var __t, __p = '', __e = _.escape, __j = Array.prototype.join;
 function print() { __p += __j.call(arguments, '') }
-with (obj) {
 
 
   function optEscape(str, unsafe){
@@ -2482,6 +2500,13 @@ with (obj) {
     }
     return str;
   }
+;
+__p += '\n';
+
+var i18n = data.i18n;
+var buttons = data.buttons;
+var step = data.step;
+var tour = data.tour;
 ;
 __p += '\n<div class="hopscotch-bubble-container" style="width: ' +
 ((__t = ( step.width )) == null ? '' : __t) +
@@ -2529,9 +2554,7 @@ __p += '<button class="hopscotch-bubble-close hopscotch-close">' +
 ((__t = ( i18n.closeTooltip )) == null ? '' : __t) +
 '</button>';
  } ;
-__p += '\n</div>\n<div class="hopscotch-bubble-arrow-container hopscotch-arrow">\n  <div class="hopscotch-bubble-arrow-border"></div>\n  <div class="hopscotch-bubble-arrow"></div>\n</div>';
-
-}
+__p += '\n</div>\n<div class="hopscotch-bubble-arrow-container hopscotch-arrow">\n  <div class="hopscotch-bubble-arrow-border"></div>\n  <div class="hopscotch-bubble-arrow"></div>\n</div>\n';
 return __p
 };
 }.call(winHopscotch));
