@@ -2467,13 +2467,12 @@ _.escape = function(str){
     if(match == "'"){ return '&#x27;' }
   });
 }
+
 this["templates"] = this["templates"] || {};
 
-this["templates"]["bubble_default"] = function(obj) {
-obj || (obj = {});
+this["templates"]["bubble_default"] = function(data) {
 var __t, __p = '', __e = _.escape, __j = Array.prototype.join;
 function print() { __p += __j.call(arguments, '') }
-with (obj) {
 
 
   function optEscape(str, unsafe){
@@ -2482,6 +2481,13 @@ with (obj) {
     }
     return str;
   }
+;
+__p += '\n';
+
+var i18n = data.i18n;
+var buttons = data.buttons;
+var step = data.step;
+var tour = data.tour;
 ;
 __p += '\n<div class="hopscotch-bubble-container" style="width: ' +
 ((__t = ( step.width )) == null ? '' : __t) +
@@ -2529,9 +2535,7 @@ __p += '<button class="hopscotch-bubble-close hopscotch-close">' +
 ((__t = ( i18n.closeTooltip )) == null ? '' : __t) +
 '</button>';
  } ;
-__p += '\n</div>\n<div class="hopscotch-bubble-arrow-container hopscotch-arrow">\n  <div class="hopscotch-bubble-arrow-border"></div>\n  <div class="hopscotch-bubble-arrow"></div>\n</div>';
-
-}
+__p += '\n</div>\n<div class="hopscotch-bubble-arrow-container hopscotch-arrow">\n  <div class="hopscotch-bubble-arrow-border"></div>\n  <div class="hopscotch-bubble-arrow"></div>\n</div>\n';
 return __p
 };
 }.call(winHopscotch));
