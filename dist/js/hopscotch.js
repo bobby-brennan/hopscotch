@@ -848,8 +848,8 @@
       }
 
       // Find arrow among new child elements.
-      children = el.children;
-      numChildren = children.length;
+      var children = el.children;
+      var numChildren = children.length;
       for (i = 0; i < numChildren; i++){
         node = children[i];
 
